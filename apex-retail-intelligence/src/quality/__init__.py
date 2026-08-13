@@ -1,1 +1,1 @@
-"""Data-quality rules."""
+"""Apex Retail Intelligence module."""

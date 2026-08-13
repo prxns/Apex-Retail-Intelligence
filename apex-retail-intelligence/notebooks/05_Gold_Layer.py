@@ -1,73 +1,39 @@
 # Databricks notebook source
 # MAGIC %md
-# MAGIC # 05_Gold_Layer
-# MAGIC 
-# MAGIC **Purpose**: Build Gold Star Schema (dim_customer, dim_product, dim_promotion, dim_date, fact_sales).
-# MAGIC Register in Unity Catalog.
+# MAGIC # Phase 5 — Gold Star Schema
+# MAGIC Build `dim_customer`, `dim_product`, `dim_promotion`, `dim_date`, and `fact_sales`, then register them in Unity Catalog under `GOLD_tables`.
 
 # COMMAND ----------
-
-import sys
-import os
+import os, sys
 from pathlib import Path
-for _candidate in (os.environ.get("APEX_RETAIL_SRC_PATH"), os.path.join(os.getcwd(), "src"), os.path.abspath("../src"), str(Path(__file__).resolve().parents[1] / "src") if "__file__" in globals() else None):
-    if _candidate and os.path.isdir(_candidate) and _candidate not in sys.path:
-        sys.path.insert(0, _candidate)
-from config.paths import IS_DATABRICKS, SILVER_DIR, GOLD_DIR
-from gold.dimensions import build_dim_customer, build_dim_product, build_dim_promotion, build_dim_date, build_fact_sales
+for p in [os.environ.get("APEX_RETAIL_SRC_PATH"), str(Path.cwd() / "src"), str(Path(__file__).resolve().parents[1] / "src") if "__file__" in globals() else None]:
+    if p and os.path.isdir(p) and p not in sys.path: sys.path.insert(0, p)
+from config.paths import IS_DATABRICKS, SILVER_DIR, GOLD_DIR, CATALOG_NAME, GOLD_SCHEMA
+from gold.dimensions import build_dim_customer, build_dim_product, build_dim_promotion, build_dim_date, build_fact_sales, register_gold_tables
+from pyspark.sql.functions import col
 
 if not IS_DATABRICKS:
     from config.runtime import get_spark
-    spark = get_spark("GoldLayer")
-
-# Configurable Unity Catalog target (can be overridden)
-CATALOG_NAME = os.environ.get("APEX_RETAIL_CATALOG", "main")
-SCHEMA_NAME = os.environ.get("APEX_RETAIL_GOLD_SCHEMA", "GOLD_tables")
+    spark = get_spark("ApexGold")
 
 # COMMAND ----------
 
-# MAGIC %md
-# MAGIC ## Build Gold Tables
+dim_customer = build_dim_customer(spark, f"{SILVER_DIR}/customer", GOLD_DIR)
+dim_product = build_dim_product(spark, f"{SILVER_DIR}/product", GOLD_DIR)
+dim_promotion = build_dim_promotion(spark, f"{SILVER_DIR}/sales", GOLD_DIR)
+dim_date = build_dim_date(spark, f"{SILVER_DIR}/sales", GOLD_DIR)
+fact_sales = build_fact_sales(spark, f"{SILVER_DIR}/sales", GOLD_DIR)
 
-# COMMAND ----------
-
-print("Building dim_customer...")
-build_dim_customer(spark, f"{SILVER_DIR}/customer", GOLD_DIR)
-
-print("Building dim_product...")
-build_dim_product(spark, f"{SILVER_DIR}/product", GOLD_DIR)
-
-print("Building dim_promotion...")
-build_dim_promotion(spark, f"{SILVER_DIR}/sales", GOLD_DIR)
-
-print("Building dim_date...")
-build_dim_date(spark, f"{SILVER_DIR}/sales", GOLD_DIR)
-
-print("Building fact_sales...")
-build_fact_sales(spark, f"{SILVER_DIR}/sales", GOLD_DIR)
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC ## Unity Catalog Registration
-
-# COMMAND ----------
-
-def register_tables():
-    # Create schema if not exists
-    spark.sql(f"CREATE SCHEMA IF NOT EXISTS {CATALOG_NAME}.{SCHEMA_NAME}")
-    
-    tables = ["dim_customer", "dim_product", "dim_promotion", "dim_date", "fact_sales"]
-    for t in tables:
-        path = f"{GOLD_DIR}/{t}"
-        try:
-            spark.sql(f"CREATE TABLE IF NOT EXISTS {CATALOG_NAME}.{SCHEMA_NAME}.{t} USING DELTA LOCATION '{path}'")
-            print(f"Registered {t} in {CATALOG_NAME}.{SCHEMA_NAME}")
-        except Exception as e:
-            print(f"Could not register {t} in Unity Catalog. It might not be available in this environment. Error: {e}")
+# Referential integrity checks. Unknown member SK 0 is intentional and documented.
+assert fact_sales.filter(col("customer_sk").isNull()).limit(1).count() == 0
+assert fact_sales.filter(col("product_sk").isNull()).limit(1).count() == 0
+assert fact_sales.filter(col("promotion_sk").isNull()).limit(1).count() == 0
+assert fact_sales.filter(col("date_sk").isNull()).limit(1).count() == 0
 
 if IS_DATABRICKS:
-    register_tables()
+    register_gold_tables(spark, CATALOG_NAME, GOLD_SCHEMA, GOLD_DIR)
+    print(f"Unity Catalog registration complete: {CATALOG_NAME}.{GOLD_SCHEMA}")
 else:
     print("Unity Catalog registration skipped outside Databricks.")
-print("Gold layer processing complete.")
+
+print("Phase 5 complete — Gold Star Schema built.")

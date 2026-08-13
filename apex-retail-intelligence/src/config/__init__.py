@@ -1,1 +1,1 @@
-"""Runtime configuration."""
+"""Apex Retail Intelligence module."""

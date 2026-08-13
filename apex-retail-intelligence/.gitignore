@@ -1,0 +1,15 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+.env
+.DS_Store
+.idea/
+.vscode/
+*.log
+data/raw/
+data/landing/
+data/bronze/
+data/silver/
+data/gold/

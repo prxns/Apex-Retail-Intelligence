@@ -1,1 +1,1 @@
-"""Gold-layer builders."""
+"""Apex Retail Intelligence module."""

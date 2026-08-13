@@ -1,37 +1,32 @@
-import sys
-import os
-import unittest
-from pathlib import Path
+import pytest
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+pyspark = pytest.importorskip("pyspark")
 from pyspark.sql import SparkSession
-from pyspark.sql.types import StructType, StructField, StringType, IntegerType
 
-class TestDQ(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls):
-        cls.spark = SparkSession.builder.master("local[1]").appName("Tests").getOrCreate()
+from src.quality.dq_rules import clean_customer, clean_product, clean_sales
 
-    def test_clean_customer_dedup(self):
-        from quality.dq_rules import clean_customer
-        
-        # Test missing PK and deduplication
-        schema = StructType([
-            StructField("customer_id", StringType(), True),
-            StructField("ingested_at", StringType(), True),
-            StructField("age", IntegerType(), True)
-        ])
-        data = [
-            (None, "2023-01-01", 30), # Should be dropped (no PK)
-            ("C1", "2023-01-01", 30),
-            ("C1", "2023-01-02", 31)  # Should keep this latest one
-        ]
-        df = self.spark.createDataFrame(data, schema)
-        clean_df = clean_customer(df)
-        
-        results = clean_df.collect()
-        self.assertEqual(len(results), 1)
-        self.assertEqual(results[0]["age"], 31)
 
-if __name__ == '__main__':
-    unittest.main()
+@pytest.fixture(scope="module")
+def spark():
+    return SparkSession.builder.master("local[2]").appName("apex-tests").getOrCreate()
+
+
+def test_customer_pk_and_duplicate_handling(spark):
+    df = spark.createDataFrame([(1, "A"), (1, "A"), (None, "B")], ["customer_id", "gender"])
+    cleaned = clean_customer(df)
+    assert cleaned.count() == 1
+    assert cleaned.first()["gender"] == "A"
+
+
+def test_product_numeric_cast(spark):
+    df = spark.createDataFrame([("10", "4.5", None)], ["product_id", "product_rating", "product_name"])
+    cleaned = clean_product(df)
+    assert str(cleaned.schema["product_rating"].dataType) == "DoubleType()"
+    assert cleaned.first()["product_name"] == "Unknown"
+
+
+def test_sales_numeric_and_pk_rules(spark):
+    df = spark.createDataFrame([("1", "2", None), (None, "3", "x")], ["transaction_id", "quantity", "payment_method"])
+    cleaned = clean_sales(df)
+    assert cleaned.count() == 1
+    assert cleaned.first()["quantity"] == 2

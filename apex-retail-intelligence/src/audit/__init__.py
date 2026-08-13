@@ -1,1 +1,1 @@
-"""Audit helpers."""
+"""Apex Retail Intelligence module."""

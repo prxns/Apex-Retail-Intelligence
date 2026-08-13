@@ -1,1 +1,1 @@
-"""Apex Retail Intelligence reusable pipeline modules."""
+"""Apex Retail Intelligence source package."""

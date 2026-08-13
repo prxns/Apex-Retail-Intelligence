@@ -1,141 +1,71 @@
 # Databricks notebook source
 # MAGIC %md
-# MAGIC # 06_KPI_Reporting
-# MAGIC 
-# MAGIC **Purpose**: Executive Snapshot & KPI Reporting
-# MAGIC 1. Regional Net Margin
-# MAGIC 2. Promotion Performance (AOV)
-# MAGIC 3. Customer Churn Heatmap
-# MAGIC 4. Product Quality
-# MAGIC 5. Store Traffic by Hour
+# MAGIC # Phase 6 — Apex Retail Intelligence KPI Report
+# MAGIC All five mandatory KPIs are calculated from the Gold Star Schema and rendered directly in Databricks. No external BI dashboard is used.
 
 # COMMAND ----------
-
-import sys
-import os
+import os, sys
 from pathlib import Path
-for _candidate in (os.environ.get("APEX_RETAIL_SRC_PATH"), os.path.join(os.getcwd(), "src"), os.path.abspath("../src"), str(Path(__file__).resolve().parents[1] / "src") if "__file__" in globals() else None):
-    if _candidate and os.path.isdir(_candidate) and _candidate not in sys.path:
-        sys.path.insert(0, _candidate)
+for p in [os.environ.get("APEX_RETAIL_SRC_PATH"), str(Path.cwd() / "src"), str(Path(__file__).resolve().parents[1] / "src") if "__file__" in globals() else None]:
+    if p and os.path.isdir(p) and p not in sys.path: sys.path.insert(0, p)
 from config.paths import IS_DATABRICKS, GOLD_DIR
-from pyspark.sql.functions import col, sum as _sum, count, avg, max as _max, when, round
+from gold.kpis import net_margin_by_region, aov_by_promotion, churn_heatmap, product_quality, store_traffic_proxy
 
 if not IS_DATABRICKS:
     from config.runtime import get_spark
-    spark = get_spark("KPIReporting")
-    def display(df): df.show(truncate=False)
+    spark = get_spark("ApexKPI")
+    display = lambda df: df.show(truncate=False)
 
 # COMMAND ----------
+fact = spark.read.format("delta").load(f"{GOLD_DIR}/fact_sales")
+customers = spark.read.format("delta").load(f"{GOLD_DIR}/dim_customer")
+products = spark.read.format("delta").load(f"{GOLD_DIR}/dim_product")
+promotions = spark.read.format("delta").load(f"{GOLD_DIR}/dim_promotion")
 
+# COMMAND ----------
 # MAGIC %md
-# MAGIC ## Load Gold Data
+# MAGIC ## 1. Net Margin by Region
+# MAGIC **Required definition:** total gross revenue minus `discount_applied`, grouped by store region/location.
 
-# COMMAND ----------
-
-fact_sales = spark.read.format("delta").load(f"{GOLD_DIR}/fact_sales")
-dim_cust = spark.read.format("delta").load(f"{GOLD_DIR}/dim_customer")
-dim_prod = spark.read.format("delta").load(f"{GOLD_DIR}/dim_product")
-dim_promo = spark.read.format("delta").load(f"{GOLD_DIR}/dim_promotion")
-dim_date = spark.read.format("delta").load(f"{GOLD_DIR}/dim_date")
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC ## KPI 1 - Regional Net Margin
-# MAGIC Net Margin = Total Sales - Discounts Applied
-
-# COMMAND ----------
-
-# Regional Net Margin
-kpi1 = fact_sales.groupBy("store_location").agg(
-    _sum("total_sales").alias("gross_revenue"),
-    _sum("discount_applied").alias("discount_amount")
-).withColumn(
-    "net_margin", col("gross_revenue") - col("discount_amount")
-).orderBy(col("net_margin").desc())
-
-print("--- KPI 1: Regional Net Margin ---")
+kpi1 = net_margin_by_region(fact)
 display(kpi1)
 
 # COMMAND ----------
-
 # MAGIC %md
-# MAGIC ## KPI 2 - AOV by Promotion
+# MAGIC ## 2. Average Order Value by Promotion
+# MAGIC AOV is observed average `total_sales` per transaction for each promotion type. This is descriptive, not causal.
 
-# COMMAND ----------
-
-# AOV by Promotion
-joined_promo = fact_sales.join(dim_promo, "promotion_sk", "left")
-
-kpi2 = joined_promo.groupBy("promotion_type").agg(
-    count("transaction_id").alias("transaction_count"),
-    _sum("total_sales").alias("total_sales")
-).withColumn(
-    "average_order_value", 
-    when(col("transaction_count") > 0, round(col("total_sales") / col("transaction_count"), 2)).otherwise(0.0)
-).orderBy(col("average_order_value").desc())
-
-print("--- KPI 2: AOV by Promotion ---")
+kpi2 = aov_by_promotion(fact, promotions)
 display(kpi2)
 
 # COMMAND ----------
-
 # MAGIC %md
-# MAGIC ## KPI 3 - Demographic Churn Heatmap
+# MAGIC ## 3. Demographic Churn Heatmap
+# MAGIC Churn rate is calculated from the supplied customer `churned` field, split by state and loyalty-program membership.
 
-# COMMAND ----------
-
-# Customer Churn Heatmap
-# Using dim_customer
-kpi3 = dim_cust.filter(col("is_current") == True).groupBy("customer_state", "loyalty_program").agg(
-    count("customer_sk").alias("total_customers"),
-    _sum(when(col("churned") == "True", 1).otherwise(0)).alias("churned_customers")
-).withColumn(
-    "churn_rate",
-    when(col("total_customers") > 0, round((col("churned_customers") / col("total_customers")) * 100, 2)).otherwise(0.0)
-).orderBy("customer_state", "loyalty_program")
-
-print("--- KPI 3: Demographic Churn Heatmap ---")
+kpi3 = churn_heatmap(customers)
 display(kpi3)
 
 # COMMAND ----------
-
 # MAGIC %md
-# MAGIC ## KPI 4 - Product Quality
+# MAGIC ## 4. Product Quality Index
+# MAGIC The assignment defines this as identifying categories with the highest return rates. The report therefore uses the supplied `product_return_rate` rather than inventing a composite score.
 
-# COMMAND ----------
-
-# Product Quality
-kpi4 = dim_prod.groupBy("product_category").agg(
-    count("product_sk").alias("number_of_products"),
-    round(avg("product_return_rate"), 4).alias("average_return_rate"),
-    _max("product_return_rate").alias("highest_return_rate")
-).orderBy(col("average_return_rate").desc())
-
-print("--- KPI 4: Product Quality ---")
+kpi4 = product_quality(products)
 display(kpi4)
 
 # COMMAND ----------
-
 # MAGIC %md
-# MAGIC ## KPI 5 - Store Traffic by Hour (Proxy)
+# MAGIC ## 5. Store Traffic by Hour — Transaction Proxy
+# MAGIC The supplied data has transaction activity, not visitor/footfall counts. Transaction count is therefore the observable traffic proxy.
 
-# COMMAND ----------
-
-# Store Traffic by Hour
-joined_date = fact_sales.join(dim_date, "date_sk", "left")
-
-kpi5 = joined_date.groupBy("store_location", "day_of_week", "transaction_hour").agg(
-    count("transaction_id").alias("transaction_count")
-).orderBy(col("transaction_count").desc())
-
-print("--- KPI 5: Store Traffic by Hour (Transaction Proxy) ---")
+kpi5 = store_traffic_proxy(fact)
 display(kpi5)
 
 # COMMAND ----------
-
 # MAGIC %md
-# MAGIC ## Business Observations & Limitations
-# MAGIC - The churn rate uses explicit boolean check; ensure `churned` is cast or string matched appropriately.
-# MAGIC - Traffic proxy indicates busiest transaction times, which might differ from actual footfall.
-# MAGIC - Sales transactions are deduplicated, ensuring ledger immutability and precise margins.
+# MAGIC ## Business interpretation / limitations
+# MAGIC - Use the highest observed value in each KPI as a descriptive signal, not a causal claim.
+# MAGIC - Actual store footfall is unavailable; transaction volume is the traffic proxy.
+# MAGIC - Net Margin follows the assignment definition and is **not** a profit-after-cost calculation.
+# MAGIC - Churn uses the supplied `churned` field.

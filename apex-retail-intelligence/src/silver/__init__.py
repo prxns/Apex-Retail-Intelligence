@@ -1,1 +1,1 @@
-"""Silver-layer transformations."""
+"""Apex Retail Intelligence module."""
