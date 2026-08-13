@@ -181,7 +181,7 @@ The execution was allowed to continue only after the landing-level reconciliatio
 
 ## Evidence
 
-![Landing conversion execution](images/02_landing_conversion.png)
+![Landing conversion execution](/prxns/Apex-Retail-Intelligence/raw/refs/heads/main/apex-retail-intelligence/docs/images/02_landing_conversion.png)
 
 ---
 
@@ -256,23 +256,6 @@ notebooks/04_Silver_Layer.py
 
 ---
 
-## 8.1 Customer Historical Audit
-
-The customer historical Silver audit completed successfully.
-
-Observed validation:
-
-```text
-dataset            expected    actual    difference    status
-customer_historical 1050        1050      0             PASS
-```
-
-### Evidence
-
-![Silver customer historical audit](images/04_0_silver_audit_pass_customer.png)
-
----
-
 ## 8.2 Customer Incremental Audit
 
 The incremental customer dataset contained source rows that required cleaning/deduplication before becoming Silver current-state records.
@@ -283,7 +266,7 @@ The final audit logic was adjusted to validate the correct stage semantics rathe
 
 ### Evidence
 
-![Silver customer incremental audit](images/04_1_silver_audit_pass_product.png)
+![Silver customer incremental audit](images/04_a_silver_audit_pass_customer.png)
 
 > **Note:** The screenshot filename follows the local evidence naming convention. The repository should retain the screenshot as captured.
 
@@ -295,7 +278,7 @@ Product historical and incremental processing completed with successful Silver a
 
 ### Evidence
 
-![Silver product audit](images/04_1_silver_audit_pass_product.png)
+![Silver product audit](images/04_b_silver_audit_pass_product.png)
 
 ---
 
@@ -305,7 +288,7 @@ Sales historical and incremental processing completed with successful audit vali
 
 ### Evidence
 
-![Silver sales audit](images/04_2_silver_audit_pass_sales.png)
+![Silver sales audit](images/04_c_silver_audit_pass_sales.png)
 
 ---
 
@@ -321,7 +304,7 @@ with audit-driven validation rather than bypassing reconciliation checks.
 
 ### Evidence
 
-![Silver layer execution](images/04_3_silver_layer.png)
+![Silver layer execution](images/04_d_silver_layer.png)
 
 ---
 
