@@ -598,7 +598,7 @@ The implementation uses the `promotion_type` already present in the Gold fact da
 
 ### Evidence
 
-![AOV by promotion KPI](images/07_aov_promotion.png)
+![AOV by promotion KPI](./images/07_aov_promotion.png)
 
 ---
 
