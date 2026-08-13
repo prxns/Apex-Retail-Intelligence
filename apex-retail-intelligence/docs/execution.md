@@ -98,7 +98,7 @@ Each phase depends on the outputs produced by the preceding phase.
 
 ---
 
-# 5. Phase 1 — Raw Ingestion
+# 5. Phase 1: Raw Ingestion
 
 ## Notebook
 
@@ -159,7 +159,7 @@ Phase 1 complete.
 
 ---
 
-# 6. Phase 2 — Landing Conversion
+# 6. Phase 2: Landing Conversion
 
 ## Notebook
 
@@ -185,7 +185,7 @@ The execution was allowed to continue only after the landing-level reconciliatio
 
 ---
 
-# 7. Phase 3 — Bronze Layer
+# 7. Phase 3: Bronze Layer
 
 ## Notebook
 
@@ -217,7 +217,7 @@ The Bronze phase completed successfully and produced the required downstream Del
 
 ---
 
-# 8. Phase 4 — Silver Layer
+# 8. Phase 4: Silver Layer
 
 ## Notebook
 
@@ -325,7 +325,7 @@ with audit-driven validation rather than bypassing reconciliation checks.
 
 ---
 
-# 9. Phase 5 — Gold Star Schema
+# 9. Phase 5: Gold Star Schema
 
 ## Notebook
 
@@ -416,7 +416,7 @@ The Gold tables were successfully constructed as Delta datasets.
 
 ---
 
-# 10. Unity Catalog Registration — Free Edition Exception
+# 10. Unity Catalog Registration: Free Edition Exception
 
 ## Expected behavior
 
