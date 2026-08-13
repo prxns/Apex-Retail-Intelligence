@@ -181,7 +181,7 @@ The execution was allowed to continue only after the landing-level reconciliatio
 
 ## Evidence
 
-![Landing conversion execution](/prxns/Apex-Retail-Intelligence/raw/refs/heads/main/apex-retail-intelligence/docs/images/02_landing_conversion.png)
+![Landing conversion](./images/02_landing_conversion.png)
 
 ---
 
