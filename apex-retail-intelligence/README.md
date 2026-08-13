@@ -674,7 +674,6 @@ The assignment materials remain the source of truth for the required schemas, au
 ## 24. Author
 
 Pranshu Rawat
-DIT University
 
 **Apex Retail Intelligence — Major Internship Project**
 
