@@ -256,7 +256,7 @@ notebooks/04_Silver_Layer.py
 
 ---
 
-## 8.2 Customer Incremental Audit
+## 8.1 Customer Incremental Audit
 
 The incremental customer dataset contained source rows that required cleaning/deduplication before becoming Silver current-state records.
 
@@ -272,7 +272,7 @@ The final audit logic was adjusted to validate the correct stage semantics rathe
 
 ---
 
-## 8.3 Product Audit
+## 8.2 Product Audit
 
 Product historical and incremental processing completed with successful Silver audit validation.
 
@@ -282,7 +282,7 @@ Product historical and incremental processing completed with successful Silver a
 
 ---
 
-## 8.4 Sales Audit
+## 8.3 Sales Audit
 
 Sales historical and incremental processing completed with successful audit validation.
 
@@ -292,7 +292,7 @@ Sales historical and incremental processing completed with successful audit vali
 
 ---
 
-## 8.5 Silver Layer Completion
+## 8.4 Silver Layer Completion
 
 The combined Silver execution evidence demonstrates successful progression through:
 
@@ -598,7 +598,7 @@ The implementation uses the `promotion_type` already present in the Gold fact da
 
 ### Evidence
 
-![AOV by promotion KPI](./images/07_aov_promotion.png)
+![AOV by promotion KPI](./images/07_kpi_aov_promotion.png)
 
 ---
 
