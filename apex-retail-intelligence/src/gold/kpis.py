@@ -12,13 +12,14 @@ def net_margin_by_region(fact: DataFrame) -> DataFrame:
     )
 
 
-def aov_by_promotion(fact: DataFrame, promo: DataFrame) -> DataFrame:
+def aov_by_promotion(fact, promotions):
     return (
-        fact.join(promo.select("promotion_sk", "promotion_type"), "promotion_sk", "left")
+        fact
         .groupBy("promotion_type")
-        .agg(count("transaction_id").alias("transaction_count"), spark_sum("total_sales").alias("total_sales"))
-        .withColumn("average_order_value", round(when(col("transaction_count") > 0, col("total_sales") / col("transaction_count")).otherwise(0.0), 2))
-        .orderBy(col("average_order_value").desc())
+        .agg(
+            avg("total_sales").alias("aov")
+        )
+        .orderBy("promotion_type")
     )
 
 

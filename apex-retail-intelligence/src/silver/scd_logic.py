@@ -44,7 +44,7 @@ def merge_customer_scd2(spark, incremental: DataFrame, path: str) -> None:
     changes = classified.filter(col("target_hash").isNull() | (col("_row_hash") != col("target_hash")))
     changed_existing = changes.filter(col("target_hash").isNotNull()).select("customer_id").distinct()
 
-    if not changed_existing.rdd.isEmpty():
+    if changed_existing.limit(1).count() > 0:
         # Close a changed version one day before the incoming version starts.
         change_dates = changes.filter(col("target_hash").isNotNull()).select("customer_id", to_date(col("effective_start_date")).alias("new_start")) if "effective_start_date" in changes.columns else changed_existing.withColumn("new_start", current_date())
         table.alias("t").merge(
@@ -54,7 +54,7 @@ def merge_customer_scd2(spark, incremental: DataFrame, path: str) -> None:
             set={"is_current": lit(False), "effective_end_date": date_sub(col("s.new_start"), 1)}
         ).execute()
 
-    if changes.rdd.isEmpty():
+    if changes.limit(1).count() == 0:
         return
 
     max_sk = target.agg({"customer_sk": "max"}).collect()[0][0] or 0
@@ -90,7 +90,7 @@ def process_silver_product(spark, df_updates: DataFrame, silver_path: str) -> No
     incoming = df_updates.drop("product_sk") if "product_sk" in df_updates.columns else df_updates
     new_rows = incoming.join(existing, "product_id", "left_anti")
     max_sk = existing.agg({"product_sk": "max"}).collect()[0][0] or 0
-    if not new_rows.rdd.isEmpty():
+    if new_rows.limit(1).count() > 0:
         w = Window.orderBy(col("product_id").cast("long"))
         new_rows = new_rows.withColumn("product_sk", (lit(int(max_sk)) + row_number().over(w)).cast("long"))
     else:

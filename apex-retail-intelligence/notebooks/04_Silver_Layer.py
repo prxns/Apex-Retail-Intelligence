@@ -1,6 +1,6 @@
 # Databricks notebook source
 # MAGIC %md
-# MAGIC # Phase 4 — Silver: DQ, MERGE, SCD1/SCD2 and Immutable Sales Ledger
+# MAGIC # Phase 4: Silver: DQ, MERGE, SCD1/SCD2 and Immutable Sales Ledger
 # MAGIC 
 # MAGIC **Mandatory MERGE outcome explanation:**
 # MAGIC - **Customer:** historical rows initialize the SCD2 target; incremental current records are compared by a deterministic attribute hash. Matching hashes are a no-op; changed keys close the current row and append a new current version; new keys are inserted.
@@ -10,15 +10,39 @@
 # MAGIC - **Idempotency:** rerunning unchanged inputs produces no new customer SCD2 version, no new product row, and no new sales transaction.
 
 # COMMAND ----------
-import os, sys
-from pathlib import Path
-for p in [os.environ.get("APEX_RETAIL_SRC_PATH"), str(Path.cwd() / "src"), str(Path(__file__).resolve().parents[1] / "src") if "__file__" in globals() else None]:
-    if p and os.path.isdir(p) and p not in sys.path: sys.path.insert(0, p)
-from config.paths import IS_DATABRICKS, BRONZE_DIR, SILVER_DIR, AUDIT_SILVER
-from quality.dq_rules import clean_customer, clean_product, clean_sales
-from silver.scd_logic import initialize_customer_scd2, merge_customer_scd2, process_silver_product
+import os
+import sys
+
+PROJECT_SRC = "/Workspace/Users/pranshurwt2003@gmail.com/Apex-Retail-Intelligence/src"
+if PROJECT_SRC not in sys.path:
+    sys.path.insert(0, PROJECT_SRC)
+
+from config.paths import (
+    IS_DATABRICKS,
+    BRONZE_DIR,
+    SILVER_DIR,
+    AUDIT_SILVER,
+)
+
+from quality.dq_rules import (
+    clean_customer,
+    clean_product,
+    clean_sales,
+)
+
+from silver.scd_logic import (
+    initialize_customer_scd2,
+    merge_customer_scd2,
+    process_silver_product,
+)
+
 from silver.sales_logic import process_silver_sales
-from audit.reconciliation import reconcile_row_count, assert_reconciliation
+
+from audit.reconciliation import (
+    reconcile_row_count,
+    assert_reconciliation,
+)
+
 from pyspark.sql.functions import col, lower
 
 if not IS_DATABRICKS:
@@ -26,7 +50,6 @@ if not IS_DATABRICKS:
     spark = get_spark("ApexSilver")
 
 # COMMAND ----------
-
 def audit_path(entity, load_type):
     name = f"{entity}_silver_audit.csv" if load_type == "historical" else f"{entity}_incrementalaudit_silver.csv"
     if IS_DATABRICKS:
@@ -45,10 +68,20 @@ def audit_table(entity, load_type):
 def load_clean(entity, load_type, cleaner):
     df = spark.read.format("delta").load(f"{BRONZE_DIR}/{entity}/{load_type}")
     cleaned = cleaner(df)
-    recon, passed = reconcile_row_count(spark, cleaned, audit_path(entity, load_type), audit_table(entity, load_type))
+
+    audit_df = df if load_type == "incremental" else cleaned
+
+    recon, passed = reconcile_row_count(
+        spark,
+        audit_df,
+        audit_path(entity, load_type),
+        audit_table(entity, load_type),
+    )
+
     assert_reconciliation(passed, audit_table(entity, load_type))
     print(f"SILVER AUDIT PASS | {audit_table(entity, load_type)}")
     display(recon) if IS_DATABRICKS else recon.show()
+
     return cleaned
 
 # COMMAND ----------
@@ -59,12 +92,15 @@ customer_hist = customer_hist.drop("surrogate_key", "version", "effective_start_
 initialize_customer_scd2(spark, customer_hist, f"{SILVER_DIR}/customer")
 
 customer_inc_all = load_clean("customer", "incremental", clean_customer)
-# The supplied incremental file contains prior and current source versions. Only current source states
-# become Silver change events; source version/SK/history fields are discarded after this selection.
-customer_inc = customer_inc_all.filter(lower(col("is_current").cast("string")) == "true")
-customer_inc = customer_inc.drop("surrogate_key", "version", "effective_end_date", "is_current")
-merge_customer_scd2(spark, customer_inc, f"{SILVER_DIR}/customer")
 
+# The supplied incremental source does not contain is_current,
+# so use the cleaned customer records directly.
+customer_inc = customer_inc_all.drop(
+    *[
+        c for c in ["surrogate_key", "version", "effective_end_date", "is_current"]
+        if c in customer_inc_all.columns
+    ]
+)
 # COMMAND ----------
 # Product SCD1
 product_hist = load_clean("product", "historical", clean_product)

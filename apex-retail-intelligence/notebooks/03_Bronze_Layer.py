@@ -1,16 +1,21 @@
 # Databricks notebook source
 # MAGIC %md
-# MAGIC # Phase 3 — Bronze Delta
+# MAGIC # Phase 3: Bronze Delta
 # MAGIC Preserve Landing values in Delta, add audit metadata, and keep historical/incremental batches separate.
 # MAGIC Bronze is append-only: a deterministic batch_id prevents the same logical batch from being appended twice.
 
 # COMMAND ----------
-import os, sys
-from pathlib import Path
-for p in [os.environ.get("APEX_RETAIL_SRC_PATH"), str(Path.cwd() / "src"), str(Path(__file__).resolve().parents[1] / "src") if "__file__" in globals() else None]:
-    if p and os.path.isdir(p) and p not in sys.path: sys.path.insert(0, p)
+import os
+import sys
+
+PROJECT_SRC = "/Workspace/Users/pranshurwt2003@gmail.com/Apex-Retail-Intelligence/src"
+if PROJECT_SRC not in sys.path:
+    sys.path.insert(0, PROJECT_SRC)
+
 from config.paths import IS_DATABRICKS, LANDING_DIR, BRONZE_DIR
+
 from pyspark.sql.functions import current_timestamp, lit, sha2, concat_ws
+
 from delta.tables import DeltaTable
 
 if not IS_DATABRICKS:
@@ -18,7 +23,6 @@ if not IS_DATABRICKS:
     spark = get_spark("ApexBronze")
 
 # COMMAND ----------
-
 def process(entity, load_type):
     landing = f"{LANDING_DIR}/{entity}/{load_type}"
     bronze = f"{BRONZE_DIR}/{entity}/{load_type}"
