@@ -26,5 +26,5 @@ BRONZE_DIR = f"{DATA_ROOT}/bronze"
 SILVER_DIR = f"{DATA_ROOT}/silver"
 GOLD_DIR = f"{DATA_ROOT}/gold"
 
-CATALOG_NAME = os.environ.get("APEX_RETAIL_CATALOG", "main")
+CATALOG_NAME = os.environ.get("APEX_RETAIL_CATALOG", "apex_retail_intelligence")
 GOLD_SCHEMA = os.environ.get("APEX_RETAIL_GOLD_SCHEMA", "GOLD_tables")
